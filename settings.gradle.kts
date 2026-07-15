@@ -1,0 +1,36 @@
+pluginManagement {
+    repositories {
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "MiBolsilloApp"
+include(":app")
+include(":domain")
+include(":data")
+include(":core:ui")
+include(":core:notification")
+include(":core:backup")
+include(":feature:catalogos")
+include(":feature:compromisos")
+include(":feature:suscripciones")
+include(":feature:transacciones")
+ 
