@@ -24,13 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "MiBolsilloApp"
 include(":app")
-include(":domain")
-include(":data")
-include(":core:ui")
-include(":core:notification")
-include(":core:backup")
-include(":feature:catalogos")
-include(":feature:compromisos")
-include(":feature:suscripciones")
-include(":feature:transacciones")
  
