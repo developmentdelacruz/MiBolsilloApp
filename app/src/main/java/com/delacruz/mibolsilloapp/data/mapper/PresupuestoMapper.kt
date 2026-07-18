@@ -9,12 +9,16 @@ fun PresupuestoEntity.toDomain(): Presupuesto = Presupuesto(
     id = id,
     categoriaId = categoriaId,
     montoMensual = montoMensualCentavos.centavosToMonto(),
+    creadoEn = creadoEn,
+    activo = activo,
 )
 
 fun Presupuesto.toEntity(): PresupuestoEntity = PresupuestoEntity(
     id = id,
     categoriaId = categoriaId,
     montoMensualCentavos = montoMensual.toCentavos(),
+    creadoEn = creadoEn,
+    activo = activo,
 )
 
 fun PresupuestoConConsumoRow.toDomain(): PresupuestoConConsumo = PresupuestoConConsumo(

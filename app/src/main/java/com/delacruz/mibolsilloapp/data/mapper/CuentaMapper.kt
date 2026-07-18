@@ -12,6 +12,7 @@ fun CuentaEntity.toDomain(): Cuenta = Cuenta(
     monedaId = monedaId,
     saldoInicial = saldoInicialCentavos.centavosToMonto(),
     activa = activa,
+    limiteCredito = limiteCreditoCentavos?.centavosToMonto(),
 )
 
 fun Cuenta.toEntity(): CuentaEntity = CuentaEntity(
@@ -21,6 +22,7 @@ fun Cuenta.toEntity(): CuentaEntity = CuentaEntity(
     monedaId = monedaId,
     saldoInicialCentavos = saldoInicial.toCentavos(),
     activa = activa,
+    limiteCreditoCentavos = limiteCredito?.toCentavos(),
 )
 
 fun CuentaConSaldoRow.toDomain(): CuentaConSaldo = CuentaConSaldo(

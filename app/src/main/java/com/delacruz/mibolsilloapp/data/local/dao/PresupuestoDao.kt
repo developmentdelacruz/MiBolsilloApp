@@ -32,6 +32,8 @@ interface PresupuestoDao {
             p.id AS presupuesto_id,
             p.categoriaId AS presupuesto_categoriaId,
             p.montoMensualCentavos AS presupuesto_montoMensualCentavos,
+            p.creadoEn AS presupuesto_creadoEn,
+            p.activo AS presupuesto_activo,
             c.id AS categoria_id,
             c.nombre AS categoria_nombre,
             c.icono AS categoria_icono,

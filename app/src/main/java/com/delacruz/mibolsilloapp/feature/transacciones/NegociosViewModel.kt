@@ -22,4 +22,8 @@ class NegociosViewModel @Inject constructor(
     fun crear(nombre: String) {
         viewModelScope.launch { repository.crear(Negocio(nombre = nombre)) }
     }
+
+    fun actualizar(negocio: Negocio) {
+        viewModelScope.launch { repository.actualizar(negocio) }
+    }
 }

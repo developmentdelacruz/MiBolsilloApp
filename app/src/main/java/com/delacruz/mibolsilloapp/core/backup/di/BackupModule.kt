@@ -1,7 +1,7 @@
 package com.delacruz.mibolsilloapp.core.backup.di
 
-import com.delacruz.mibolsilloapp.core.backup.BackupManager
-import com.delacruz.mibolsilloapp.core.backup.BackupManagerImpl
+import com.delacruz.mibolsilloapp.core.backup.RespaldoManager
+import com.delacruz.mibolsilloapp.core.backup.RespaldoManagerImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -14,5 +14,5 @@ abstract class BackupModule {
 
     @Binds
     @Singleton
-    abstract fun bindBackupManager(impl: BackupManagerImpl): BackupManager
+    abstract fun bindRespaldoManager(impl: RespaldoManagerImpl): RespaldoManager
 }

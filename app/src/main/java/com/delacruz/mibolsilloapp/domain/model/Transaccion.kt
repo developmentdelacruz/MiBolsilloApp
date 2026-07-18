@@ -13,6 +13,8 @@ data class Transaccion(
     val cuentaId: Long,
     val negocioId: Long? = null,
     val proyectoId: Long? = null,
+    val compraId: Long? = null,
+    val numeroCuota: Int? = null,
 )
 
 enum class TipoTransaccion {

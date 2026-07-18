@@ -6,8 +6,10 @@ import com.delacruz.mibolsilloapp.data.mapper.toEntity
 import com.delacruz.mibolsilloapp.domain.model.Compromiso
 import com.delacruz.mibolsilloapp.domain.model.CompromisoConPagos
 import com.delacruz.mibolsilloapp.domain.model.CompromisoConSaldo
+import com.delacruz.mibolsilloapp.domain.model.EstadoCompromiso
 import com.delacruz.mibolsilloapp.domain.model.PagoCompromiso
 import com.delacruz.mibolsilloapp.domain.repository.CompromisoRepository
+import java.math.BigDecimal
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -37,4 +39,11 @@ class CompromisoRepositoryImpl @Inject constructor(
 
     override fun observarTodosConSaldo(): Flow<List<CompromisoConSaldo>> =
         dao.observeTodosConSaldo().map { filas -> filas.map { it.toDomain() } }
+
+    override fun observarTotalSaldoPendiente(): Flow<BigDecimal> =
+        dao.observeTodosConSaldo().map { filas ->
+            filas
+                .filter { it.compromiso.estado == EstadoCompromiso.ACTIVO }
+                .fold(BigDecimal.ZERO) { acumulado, fila -> acumulado + fila.toDomain().saldoPendiente }
+        }
 }

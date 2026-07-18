@@ -25,4 +25,6 @@ data class CuentaEntity(
     val monedaId: Long,
     val saldoInicialCentavos: Long,
     val activa: Boolean = true,
+    /** Solo relevante para TARJETA; habilita el % de utilización. */
+    val limiteCreditoCentavos: Long? = null,
 )

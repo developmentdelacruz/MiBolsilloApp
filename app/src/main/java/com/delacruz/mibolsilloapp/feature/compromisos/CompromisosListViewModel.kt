@@ -43,6 +43,10 @@ class CompromisosListViewModel @Inject constructor(
         }
     }
 
+    fun actualizar(compromiso: Compromiso) {
+        viewModelScope.launch { repository.actualizar(compromiso) }
+    }
+
     fun eliminar(compromiso: Compromiso) {
         viewModelScope.launch { repository.eliminar(compromiso) }
     }

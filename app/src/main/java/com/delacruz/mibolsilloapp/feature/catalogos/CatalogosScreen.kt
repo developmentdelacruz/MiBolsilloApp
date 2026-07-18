@@ -2,9 +2,13 @@
 
 package com.delacruz.mibolsilloapp.feature.catalogos
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,13 +16,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -28,18 +31,17 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,21 +50,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.delacruz.mibolsilloapp.core.ui.components.ChipEstado
 import com.delacruz.mibolsilloapp.core.ui.components.EstadoVacio
+import com.delacruz.mibolsilloapp.core.ui.components.FilaConSwipe
 import com.delacruz.mibolsilloapp.core.ui.components.FormularioHoja
 import com.delacruz.mibolsilloapp.core.ui.components.IconoCategoria
 import com.delacruz.mibolsilloapp.core.ui.components.MontoTexto
 import com.delacruz.mibolsilloapp.core.ui.components.TonoChip
+import com.delacruz.mibolsilloapp.core.ui.components.entradaEscalonada
 import com.delacruz.mibolsilloapp.core.ui.components.formatearMonto
 import com.delacruz.mibolsilloapp.core.ui.theme.MiBolsilloTheme
+import com.delacruz.mibolsilloapp.domain.model.Categoria
+import com.delacruz.mibolsilloapp.domain.model.Moneda
+import com.delacruz.mibolsilloapp.domain.model.Presupuesto
+import com.delacruz.mibolsilloapp.domain.model.PresupuestoConConsumo
 import com.delacruz.mibolsilloapp.domain.model.TipoCategoria
 import java.math.BigDecimal
 
 @Composable
-fun CatalogosScreen() {
+fun CatalogosScreen(onPresupuestoClick: (Long) -> Unit) {
     var tabSeleccionado by remember { mutableStateOf(0) }
 
     Scaffold(
@@ -74,50 +83,18 @@ fun CatalogosScreen() {
                 Tab(selected = tabSeleccionado == 1, onClick = { tabSeleccionado = 1 }, text = { Text("Monedas") })
                 Tab(selected = tabSeleccionado == 2, onClick = { tabSeleccionado = 2 }, text = { Text("Presupuestos") })
             }
-            when (tabSeleccionado) {
-                0 -> CategoriasTab()
-                1 -> MonedasTab()
-                else -> PresupuestosTab()
+            AnimatedContent(
+                targetState = tabSeleccionado,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "tabCatalogos",
+            ) { tab ->
+                when (tab) {
+                    0 -> CategoriasTab()
+                    1 -> MonedasTab()
+                    else -> PresupuestosTab(onPresupuestoClick = onPresupuestoClick)
+                }
             }
         }
-    }
-}
-
-/** Envuelve una fila en swipe-to-delete: desliza en cualquier dirección para eliminar. */
-@Composable
-private fun FilaConSwipe(
-    onEliminar: () -> Unit,
-    modifier: Modifier = Modifier,
-    contenido: @Composable () -> Unit,
-) {
-    val estado = rememberSwipeToDismissBoxState(
-        confirmValueChange = { valor ->
-            if (valor != SwipeToDismissBoxValue.Settled) {
-                onEliminar()
-            }
-            true
-        },
-    )
-    SwipeToDismissBox(
-        state = estado,
-        modifier = modifier,
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = "Eliminar",
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            }
-        },
-    ) {
-        contenido()
     }
 }
 
@@ -125,6 +102,7 @@ private fun FilaConSwipe(
 private fun CategoriasTab(viewModel: CategoriasViewModel = hiltViewModel()) {
     val categorias by viewModel.categorias.collectAsState()
     var mostrarDialogo by remember { mutableStateOf(false) }
+    var elementoEnEdicion by remember { mutableStateOf<Categoria?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -145,9 +123,14 @@ private fun CategoriasTab(viewModel: CategoriasViewModel = hiltViewModel()) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(categorias, key = { it.id }) { categoria ->
-                    FilaConSwipe(onEliminar = { viewModel.eliminar(categoria) }) {
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                itemsIndexed(categorias, key = { _, categoria -> categoria.id }) { index, categoria ->
+                    FilaConSwipe(
+                        onEliminar = { viewModel.eliminar(categoria) },
+                        modifier = Modifier.entradaEscalonada(index),
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { elementoEnEdicion = categoria },
+                        ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -173,18 +156,29 @@ private fun CategoriasTab(viewModel: CategoriasViewModel = hiltViewModel()) {
         }
     }
 
-    if (mostrarDialogo) {
-        var nombre by remember { mutableStateOf("") }
-        var icono by remember { mutableStateOf("") }
-        var tipo by remember { mutableStateOf(TipoCategoria.GASTO) }
+    if (mostrarDialogo || elementoEnEdicion != null) {
+        var nombre by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.nombre ?: "") }
+        var icono by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.icono ?: "") }
+        var tipo by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.tipo ?: TipoCategoria.GASTO) }
         var expandido by remember { mutableStateOf(false) }
 
         FormularioHoja(
-            titulo = "Nueva categoría",
-            onCerrar = { mostrarDialogo = false },
-            onGuardar = {
-                viewModel.crear(nombre, icono.ifBlank { "🏷️" }, tipo)
+            titulo = if (elementoEnEdicion != null) "Editar categoría" else "Nueva categoría",
+            onCerrar = {
                 mostrarDialogo = false
+                elementoEnEdicion = null
+            },
+            onGuardar = {
+                val categoriaEnEdicion = elementoEnEdicion
+                if (categoriaEnEdicion != null) {
+                    viewModel.actualizar(
+                        categoriaEnEdicion.copy(nombre = nombre, icono = icono.ifBlank { "🏷️" }, tipo = tipo),
+                    )
+                } else {
+                    viewModel.crear(nombre, icono.ifBlank { "🏷️" }, tipo)
+                }
+                mostrarDialogo = false
+                elementoEnEdicion = null
             },
             guardarHabilitado = nombre.isNotBlank(),
         ) {
@@ -229,6 +223,7 @@ private fun CategoriasTab(viewModel: CategoriasViewModel = hiltViewModel()) {
 private fun MonedasTab(viewModel: MonedasViewModel = hiltViewModel()) {
     val monedas by viewModel.monedas.collectAsState()
     var mostrarDialogo by remember { mutableStateOf(false) }
+    var elementoEnEdicion by remember { mutableStateOf<Moneda?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -249,9 +244,14 @@ private fun MonedasTab(viewModel: MonedasViewModel = hiltViewModel()) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(monedas, key = { it.id }) { moneda ->
-                    FilaConSwipe(onEliminar = { viewModel.eliminar(moneda) }) {
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                itemsIndexed(monedas, key = { _, moneda -> moneda.id }) { index, moneda ->
+                    FilaConSwipe(
+                        onEliminar = { viewModel.eliminar(moneda) },
+                        modifier = Modifier.entradaEscalonada(index),
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { elementoEnEdicion = moneda },
+                        ) {
                             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                 Text(
                                     "${moneda.simbolo}  ${moneda.codigo} — ${moneda.nombre}",
@@ -272,18 +272,36 @@ private fun MonedasTab(viewModel: MonedasViewModel = hiltViewModel()) {
         }
     }
 
-    if (mostrarDialogo) {
-        var codigo by remember { mutableStateOf("") }
-        var nombre by remember { mutableStateOf("") }
-        var simbolo by remember { mutableStateOf("") }
-        var predeterminada by remember { mutableStateOf(false) }
+    if (mostrarDialogo || elementoEnEdicion != null) {
+        var codigo by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.codigo ?: "") }
+        var nombre by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.nombre ?: "") }
+        var simbolo by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.simbolo ?: "") }
+        var predeterminada by remember(elementoEnEdicion) {
+            mutableStateOf(elementoEnEdicion?.esPredeterminada ?: false)
+        }
 
         FormularioHoja(
-            titulo = "Nueva moneda",
-            onCerrar = { mostrarDialogo = false },
-            onGuardar = {
-                viewModel.crear(codigo, nombre, simbolo, predeterminada)
+            titulo = if (elementoEnEdicion != null) "Editar moneda" else "Nueva moneda",
+            onCerrar = {
                 mostrarDialogo = false
+                elementoEnEdicion = null
+            },
+            onGuardar = {
+                val monedaEnEdicion = elementoEnEdicion
+                if (monedaEnEdicion != null) {
+                    viewModel.actualizar(
+                        monedaEnEdicion.copy(
+                            codigo = codigo,
+                            nombre = nombre,
+                            simbolo = simbolo,
+                            esPredeterminada = predeterminada,
+                        ),
+                    )
+                } else {
+                    viewModel.crear(codigo, nombre, simbolo, predeterminada)
+                }
+                mostrarDialogo = false
+                elementoEnEdicion = null
             },
             guardarHabilitado = codigo.isNotBlank() && simbolo.isNotBlank(),
         ) {
@@ -314,11 +332,15 @@ private fun MonedasTab(viewModel: MonedasViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun PresupuestosTab(viewModel: PresupuestosViewModel = hiltViewModel()) {
+private fun PresupuestosTab(
+    onPresupuestoClick: (Long) -> Unit,
+    viewModel: PresupuestosViewModel = hiltViewModel(),
+) {
     val presupuestos by viewModel.presupuestos.collectAsState()
     val categoriasDisponibles by viewModel.categoriasDisponibles.collectAsState()
     val simbolo by viewModel.simboloMoneda.collectAsState()
     var mostrarDialogo by remember { mutableStateOf(false) }
+    var elementoEnEdicion by remember { mutableStateOf<PresupuestoConConsumo?>(null) }
 
     Scaffold(
         floatingActionButton = {
@@ -339,15 +361,37 @@ private fun PresupuestosTab(viewModel: PresupuestosViewModel = hiltViewModel()) 
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(presupuestos, key = { it.presupuesto.id }) { item ->
-                    FilaConSwipe(onEliminar = { viewModel.eliminar(item.presupuesto) }) {
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                itemsIndexed(presupuestos, key = { _, item -> item.presupuesto.id }) { index, item ->
+                    FilaConSwipe(
+                        onEliminar = { viewModel.eliminar(item.presupuesto) },
+                        modifier = Modifier.entradaEscalonada(index),
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(if (item.presupuesto.activo) 1f else 0.5f)
+                                .clickable { elementoEnEdicion = item },
+                        ) {
                             Row(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                 IconoCategoria(item.categoria.icono, modifier = Modifier.padding(end = 12.dp))
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    Text(item.categoria.nombre, style = MaterialTheme.typography.titleMedium)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(item.categoria.nombre, style = MaterialTheme.typography.titleMedium)
+                                        if (!item.presupuesto.activo) {
+                                            Text(
+                                                "· Inactivo",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(start = 6.dp),
+                                            )
+                                        }
+                                    }
+                                    val progresoAnimado by animateFloatAsState(
+                                        targetValue = item.porcentajeConsumido,
+                                        label = "progresoPresupuesto",
+                                    )
                                     LinearProgressIndicator(
-                                        progress = { item.porcentajeConsumido },
+                                        progress = { progresoAnimado },
                                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                         color = if (item.porcentajeConsumido >= 1f) {
                                             MiBolsilloTheme.extendedColors.negative
@@ -361,6 +405,19 @@ private fun PresupuestosTab(viewModel: PresupuestosViewModel = hiltViewModel()) 
                                         style = MaterialTheme.typography.bodyMedium,
                                         modifier = Modifier.padding(top = 4.dp),
                                     )
+                                    if (item.rolloverAcumulado.signum() != 0) {
+                                        Text(
+                                            "Disponible: ${item.disponibleTotal.formatearMonto(simbolo)} " +
+                                                "(incluye ${item.rolloverAcumulado.formatearMonto(simbolo)} " +
+                                                "de meses anteriores)",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(top = 2.dp),
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { onPresupuestoClick(item.presupuesto.categoriaId) }) {
+                                    Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = "Ver historial")
                                 }
                             }
                         }
@@ -370,28 +427,61 @@ private fun PresupuestosTab(viewModel: PresupuestosViewModel = hiltViewModel()) 
         }
     }
 
-    if (mostrarDialogo) {
-        var montoMensual by remember { mutableStateOf("") }
-        var categoriaId by remember { mutableStateOf<Long?>(categoriasDisponibles.firstOrNull()?.id) }
+    if (mostrarDialogo || elementoEnEdicion != null) {
+        val presupuestoEnEdicion = elementoEnEdicion
+        // En edición, la categoría ya asignada no aparece en categoriasDisponibles (está excluida
+        // por tener presupuesto propio) — hay que reinyectarla para poder mostrarla seleccionada.
+        val categoriasParaFormulario = remember(categoriasDisponibles, presupuestoEnEdicion) {
+            if (presupuestoEnEdicion != null &&
+                categoriasDisponibles.none { it.id == presupuestoEnEdicion.categoria.id }
+            ) {
+                categoriasDisponibles + presupuestoEnEdicion.categoria
+            } else {
+                categoriasDisponibles
+            }
+        }
+        var montoMensual by remember(elementoEnEdicion) {
+            mutableStateOf(presupuestoEnEdicion?.presupuesto?.montoMensual?.toPlainString() ?: "")
+        }
+        var categoriaId by remember(elementoEnEdicion) {
+            mutableStateOf(presupuestoEnEdicion?.categoria?.id ?: categoriasParaFormulario.firstOrNull()?.id)
+        }
+        var activo by remember(elementoEnEdicion) {
+            mutableStateOf(presupuestoEnEdicion?.presupuesto?.activo ?: true)
+        }
         var expandido by remember { mutableStateOf(false) }
-        val categoriaSeleccionada = categoriasDisponibles.firstOrNull { it.id == categoriaId }
+        val categoriaSeleccionada = categoriasParaFormulario.firstOrNull { it.id == categoriaId }
 
         FormularioHoja(
-            titulo = "Nuevo presupuesto",
-            onCerrar = { mostrarDialogo = false },
+            titulo = if (presupuestoEnEdicion != null) "Editar presupuesto" else "Nuevo presupuesto",
+            onCerrar = {
+                mostrarDialogo = false
+                elementoEnEdicion = null
+            },
             onGuardar = {
                 val montoBd = runCatching { BigDecimal(montoMensual) }.getOrNull()
                 val categoriaSeleccionadaId = categoriaId
                 if (montoBd != null && categoriaSeleccionadaId != null) {
-                    viewModel.crear(categoriaSeleccionadaId, montoBd)
+                    if (presupuestoEnEdicion != null) {
+                        viewModel.actualizar(
+                            presupuestoEnEdicion.presupuesto.copy(
+                                categoriaId = categoriaSeleccionadaId,
+                                montoMensual = montoBd,
+                                activo = activo,
+                            ),
+                        )
+                    } else {
+                        viewModel.crear(categoriaSeleccionadaId, montoBd)
+                    }
                     mostrarDialogo = false
+                    elementoEnEdicion = null
                 }
             },
-            guardarHabilitado = categoriasDisponibles.isNotEmpty() &&
+            guardarHabilitado = categoriasParaFormulario.isNotEmpty() &&
                 categoriaId != null &&
                 montoMensual.toBigDecimalOrNull() != null,
         ) {
-            if (categoriasDisponibles.isEmpty()) {
+            if (categoriasParaFormulario.isEmpty()) {
                 Text("Todas tus categorías de gasto ya tienen un presupuesto asignado.")
             } else {
                 ExposedDropdownMenuBox(expanded = expandido, onExpandedChange = { expandido = it }) {
@@ -404,7 +494,7 @@ private fun PresupuestosTab(viewModel: PresupuestosViewModel = hiltViewModel()) 
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandido) },
                     )
                     ExposedDropdownMenu(expanded = expandido, onDismissRequest = { expandido = false }) {
-                        categoriasDisponibles.forEach { opcion ->
+                        categoriasParaFormulario.forEach { opcion ->
                             DropdownMenuItem(
                                 text = { Text(opcion.nombre) },
                                 onClick = {
@@ -421,6 +511,16 @@ private fun PresupuestosTab(viewModel: PresupuestosViewModel = hiltViewModel()) 
                     label = { Text("Monto mensual") },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
+                if (presupuestoEnEdicion != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Presupuesto activo")
+                        Switch(checked = activo, onCheckedChange = { activo = it })
+                    }
+                }
             }
         }
     }

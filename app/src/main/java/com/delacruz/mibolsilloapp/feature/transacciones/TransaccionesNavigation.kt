@@ -5,17 +5,23 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.delacruz.mibolsilloapp.feature.catalogos.RUTA_PRESUPUESTO_DETALLE_BASE
 
 const val RUTA_RESUMEN = "resumen"
 const val RUTA_CUENTAS = "cuentas"
 const val RUTA_TRANSACCIONES = "transacciones"
 const val RUTA_NEGOCIOS = "negocios"
 const val RUTA_PROYECTOS = "proyectos"
+const val RUTA_COMPRAS = "compras"
 private const val RUTA_NEGOCIO_DETALLE = "negocios/{negocioId}"
 private const val RUTA_PROYECTO_DETALLE = "proyectos/{proyectoId}"
 
-fun NavGraphBuilder.resumenGraph() {
-    composable(RUTA_RESUMEN) { ResumenScreen() }
+fun NavGraphBuilder.resumenGraph(navController: NavController) {
+    composable(RUTA_RESUMEN) {
+        ResumenScreen(
+            onPresupuestoClick = { categoriaId -> navController.navigate("$RUTA_PRESUPUESTO_DETALLE_BASE/$categoriaId") },
+        )
+    }
 }
 
 fun NavGraphBuilder.cuentasGraph() {
@@ -24,6 +30,10 @@ fun NavGraphBuilder.cuentasGraph() {
 
 fun NavGraphBuilder.transaccionesGraph() {
     composable(RUTA_TRANSACCIONES) { TransaccionesScreen() }
+}
+
+fun NavGraphBuilder.comprasGraph() {
+    composable(RUTA_COMPRAS) { ComprasScreen() }
 }
 
 fun NavGraphBuilder.negociosGraph(navController: NavController) {

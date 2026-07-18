@@ -3,9 +3,7 @@
 package com.delacruz.mibolsilloapp.feature.suscripciones
 
 import android.content.Intent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,10 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
@@ -24,28 +21,27 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.delacruz.mibolsilloapp.core.ui.components.ChipEstado
 import com.delacruz.mibolsilloapp.core.ui.components.EstadoVacio
+import com.delacruz.mibolsilloapp.core.ui.components.FilaConSwipe
 import com.delacruz.mibolsilloapp.core.ui.components.FormularioHoja
 import com.delacruz.mibolsilloapp.core.ui.components.MontoTexto
+import com.delacruz.mibolsilloapp.core.ui.components.TarjetaMetrica
 import com.delacruz.mibolsilloapp.core.ui.components.TonoChip
+import com.delacruz.mibolsilloapp.core.ui.components.entradaEscalonada
 import com.delacruz.mibolsilloapp.core.ui.components.formatearMonto
 import com.delacruz.mibolsilloapp.domain.model.EstadoPago
 import java.math.BigDecimal
@@ -67,18 +63,14 @@ fun SuscripcionDetalleScreen(viewModel: SuscripcionDetalleViewModel = hiltViewMo
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             detalle?.let { info ->
-                Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("Día de cobro: ${info.suscripcion.diaCobro}", style = MaterialTheme.typography.bodyMedium)
-                        MontoTexto(
-                            texto = "${info.suscripcion.montoMensual.formatearMonto(simbolo)}/mes",
-                            esPositivo = false,
-                        )
-                    }
-                }
+                TarjetaMetrica(
+                    titulo = info.suscripcion.nombre,
+                    valor = "${info.suscripcion.montoMensual.formatearMonto(simbolo)}/mes",
+                    esPositivo = false,
+                    esHero = true,
+                    subtitulo = "Cobra el día ${info.suscripcion.diaCobro}",
+                    modifier = Modifier.padding(16.dp),
+                )
             }
 
             val invitados = detalle?.invitados.orEmpty()
@@ -90,35 +82,11 @@ fun SuscripcionDetalleScreen(viewModel: SuscripcionDetalleViewModel = hiltViewMo
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(invitados, key = { it.id }) { invitado ->
+                    itemsIndexed(invitados, key = { _, item -> item.id }) { index, invitado ->
                         val suscripcionNombre = detalle?.suscripcion?.nombre.orEmpty()
-                        val estadoDismiss = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { valor ->
-                                if (valor == SwipeToDismissBoxValue.EndToStart) {
-                                    viewModel.eliminarInvitado(invitado)
-                                    true
-                                } else {
-                                    false
-                                }
-                            },
-                        )
-                        SwipeToDismissBox(
-                            state = estadoDismiss,
-                            backgroundContent = {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.errorContainer),
-                                    contentAlignment = Alignment.CenterEnd,
-                                ) {
-                                    Icon(
-                                        Icons.Filled.Delete,
-                                        contentDescription = "Eliminar",
-                                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                                        modifier = Modifier.padding(horizontal = 20.dp),
-                                    )
-                                }
-                            },
+                        FilaConSwipe(
+                            onEliminar = { viewModel.eliminarInvitado(invitado) },
+                            modifier = Modifier.entradaEscalonada(index),
                         ) {
                             Card(modifier = Modifier.fillMaxWidth()) {
                                 Column(modifier = Modifier.padding(16.dp)) {

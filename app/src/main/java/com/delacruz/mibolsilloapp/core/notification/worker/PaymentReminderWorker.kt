@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.delacruz.mibolsilloapp.core.notification.notifier.PaymentNotifier
+import com.delacruz.mibolsilloapp.core.preferences.PerfilPreferences
 import com.delacruz.mibolsilloapp.domain.model.EstadoCompromiso
 import com.delacruz.mibolsilloapp.domain.repository.CompromisoRepository
 import com.delacruz.mibolsilloapp.domain.repository.SuscripcionRepository
@@ -21,11 +22,13 @@ class PaymentReminderWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val compromisoRepository: CompromisoRepository,
     private val suscripcionRepository: SuscripcionRepository,
+    private val perfilPreferences: PerfilPreferences,
     private val notifier: PaymentNotifier,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         val hoy = LocalDate.now()
+        val prefijo = perfilPreferences.obtenerNombre()?.let { "$it, " } ?: ""
 
         compromisoRepository.observarTodosConSaldo().first()
             .filter { it.compromiso.estado == EstadoCompromiso.ACTIVO && it.saldoPendiente > BigDecimal.ZERO }
@@ -34,7 +37,7 @@ class PaymentReminderWorker @AssistedInject constructor(
                 if (estaProximo(hoy, proxima)) {
                     notifier.notificarPagoProximo(
                         id = item.compromiso.id,
-                        titulo = "Pago próximo: ${item.compromiso.nombre}",
+                        titulo = "${prefijo}Pago próximo: ${item.compromiso.nombre}",
                         mensaje = "Vence el $proxima. Saldo pendiente: ${item.saldoPendiente}",
                     )
                 }
@@ -46,7 +49,7 @@ class PaymentReminderWorker @AssistedInject constructor(
                 if (estaProximo(hoy, proxima)) {
                     notifier.notificarPagoProximo(
                         id = suscripcion.id + ID_OFFSET_SUSCRIPCION,
-                        titulo = "Cobro próximo: ${suscripcion.nombre}",
+                        titulo = "${prefijo}Cobro próximo: ${suscripcion.nombre}",
                         mensaje = "Se cobra el $proxima: ${suscripcion.montoMensual}",
                     )
                 }

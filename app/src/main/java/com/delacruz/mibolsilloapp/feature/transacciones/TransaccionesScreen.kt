@@ -2,7 +2,7 @@
 
 package com.delacruz.mibolsilloapp.feature.transacciones
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,32 +13,34 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,25 +53,43 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.delacruz.mibolsilloapp.core.ui.components.DonutChart
 import com.delacruz.mibolsilloapp.core.ui.components.EstadoVacio
 import com.delacruz.mibolsilloapp.core.ui.components.FechaCampo
+import com.delacruz.mibolsilloapp.core.ui.components.FilaConSwipe
 import com.delacruz.mibolsilloapp.core.ui.components.FormularioHoja
 import com.delacruz.mibolsilloapp.core.ui.components.IconoCategoria
+import com.delacruz.mibolsilloapp.core.ui.components.LineChart
 import com.delacruz.mibolsilloapp.core.ui.components.MontoTexto
+import com.delacruz.mibolsilloapp.core.ui.components.TarjetaMetrica
+import com.delacruz.mibolsilloapp.core.ui.components.entradaEscalonada
 import com.delacruz.mibolsilloapp.core.ui.components.formatearMonto
+import com.delacruz.mibolsilloapp.core.ui.theme.MiBolsilloTheme
 import com.delacruz.mibolsilloapp.domain.model.Categoria
 import com.delacruz.mibolsilloapp.domain.model.Cuenta
 import com.delacruz.mibolsilloapp.domain.model.Moneda
 import com.delacruz.mibolsilloapp.domain.model.Negocio
+import com.delacruz.mibolsilloapp.domain.model.PresupuestoConConsumo
 import com.delacruz.mibolsilloapp.domain.model.Proyecto
+import com.delacruz.mibolsilloapp.domain.model.SugerenciaRecurrencia
 import com.delacruz.mibolsilloapp.domain.model.TipoCuenta
 import com.delacruz.mibolsilloapp.domain.model.TipoTransaccion
+import com.delacruz.mibolsilloapp.domain.model.Transaccion
 import java.math.BigDecimal
 import java.time.LocalDate
+import kotlinx.coroutines.flow.first
 
 @Composable
-fun ResumenScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
+fun ResumenScreen(
+    onPresupuestoClick: (Long) -> Unit,
+    viewModel: TransaccionesViewModel = hiltViewModel(),
+) {
     val transacciones by viewModel.transacciones.collectAsState()
     val categorias by viewModel.categorias.collectAsState()
+    val negocios by viewModel.negocios.collectAsState()
     val balanceTotal by viewModel.balanceTotal.collectAsState()
+    val disponibleParaGastar by viewModel.disponibleParaGastar.collectAsState()
+    val patrimonioNeto by viewModel.patrimonioNeto.collectAsState()
+    val historialPatrimonio by viewModel.historialPatrimonio.collectAsState()
+    val sugerenciasRecurrencia by viewModel.sugerenciasRecurrencia.collectAsState()
+    val presupuestosActivos by viewModel.presupuestosActivos.collectAsState()
     val simbolo by viewModel.simboloMoneda.collectAsState()
 
     val hoy = remember { LocalDate.now() }
@@ -118,17 +138,55 @@ fun ResumenScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            itemsIndexed(
+                sugerenciasRecurrencia,
+                key = { _, s -> "${s.negocioId}-${s.categoriaId}" },
+            ) { index, sugerencia ->
+                SugerenciaRecurrenciaCard(
+                    sugerencia = sugerencia,
+                    nombreNegocio = negocios.firstOrNull { it.id == sugerencia.negocioId }?.nombre
+                        ?: "Este negocio",
+                    simbolo = simbolo,
+                    onConvertirEnSuscripcion = { viewModel.convertirEnSuscripcion(sugerencia) },
+                    onDescartar = { viewModel.descartarSugerencia(sugerencia) },
+                    modifier = Modifier.entradaEscalonada(index),
+                )
+            }
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Balance total", style = MaterialTheme.typography.labelMedium)
-                        MontoTexto(
-                            texto = balanceTotal.formatearMonto(simbolo),
-                            esPositivo = balanceTotal.signum() >= 0,
-                            style = MaterialTheme.typography.headlineMedium,
-                        )
-                    }
-                }
+                TarjetaMetrica(
+                    titulo = "Disponible para gastar",
+                    valor = disponibleParaGastar.formatearMonto(simbolo),
+                    esPositivo = disponibleParaGastar.signum() >= 0,
+                    subtitulo = "Balance menos compromisos pendientes y presupuesto del mes",
+                    esHero = true,
+                    colorContenedor = MaterialTheme.colorScheme.secondaryContainer,
+                    colorContenido = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+            item {
+                TarjetaMetrica(
+                    titulo = "Balance total",
+                    valor = balanceTotal.formatearMonto(simbolo),
+                    esPositivo = balanceTotal.signum() >= 0,
+                )
+            }
+            item {
+                TarjetaMetrica(
+                    titulo = "Patrimonio neto",
+                    valor = patrimonioNeto.formatearMonto(simbolo),
+                    esPositivo = patrimonioNeto.signum() >= 0,
+                    subtitulo = "Activos menos deuda de tarjetas y compromisos pendientes",
+                    contenidoExtra = if (historialPatrimonio.size >= 2) {
+                        {
+                            LineChart(
+                                valores = historialPatrimonio.map { it.valor.toFloat() },
+                                formatoValor = { v -> BigDecimal(v.toString()).formatearMonto(simbolo) },
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                )
             }
             item {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -146,6 +204,57 @@ fun ResumenScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
                     }
                 }
             }
+            if (presupuestosActivos.isNotEmpty()) {
+                item {
+                    Text("Presupuestos", style = MaterialTheme.typography.titleMedium)
+                }
+                itemsIndexed(
+                    presupuestosActivos,
+                    key = { _, item -> item.presupuesto.id },
+                ) { index, item ->
+                    val excedido = item.porcentajeConsumido >= 1f
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .entradaEscalonada(index)
+                            .clickable { onPresupuestoClick(item.presupuesto.categoriaId) },
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            IconoCategoria(icono = item.categoria.icono)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(item.categoria.nombre, style = MaterialTheme.typography.bodyMedium)
+                                val progresoAnimado by animateFloatAsState(
+                                    targetValue = item.porcentajeConsumido,
+                                    label = "progresoPresupuestoResumen",
+                                )
+                                LinearProgressIndicator(
+                                    progress = { progresoAnimado },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    color = if (excedido) {
+                                        MiBolsilloTheme.extendedColors.negative
+                                    } else {
+                                        MaterialTheme.colorScheme.primary
+                                    },
+                                )
+                            }
+                            Text(
+                                "${item.consumido.formatearMonto(simbolo)} / " +
+                                    item.presupuesto.montoMensual.formatearMonto(simbolo),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (excedido) {
+                                    MiBolsilloTheme.extendedColors.negative
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                            )
+                        }
+                    }
+                }
+            }
             if (gastoPorCategoria.isNotEmpty()) {
                 item {
                     Column {
@@ -154,13 +263,19 @@ fun ResumenScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
                             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            DonutChart(valores = gastoPorCategoria.map { it.third.toFloat() })
+                            DonutChart(
+                                valores = gastoPorCategoria.map { it.third.toFloat() },
+                                etiquetas = gastoPorCategoria.map { it.first },
+                            )
                         }
                     }
                 }
-                items(gastoPorCategoria) { (nombre, icono, monto) ->
+                itemsIndexed(gastoPorCategoria) { index, (nombre, icono, monto) ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .entradaEscalonada(index),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -175,6 +290,46 @@ fun ResumenScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
 }
 
 @Composable
+private fun SugerenciaRecurrenciaCard(
+    sugerencia: SugerenciaRecurrencia,
+    nombreNegocio: String,
+    simbolo: String,
+    onConvertirEnSuscripcion: () -> Unit,
+    onDescartar: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Pago recurrente detectado",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            Text(
+                "$nombreNegocio: ${sugerencia.montoPromedio.formatearMonto(simbolo)} aprox., " +
+                    "${sugerencia.ocurrencias} veces registrado cada mes",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onConvertirEnSuscripcion) {
+                    Text("Convertir en suscripción")
+                }
+                TextButton(onClick = onDescartar) {
+                    Text("Descartar")
+                }
+            }
+        }
+    }
+}
+
+private data class ParticipanteForm(val nombreContacto: String, val telefono: String = "", val monto: String = "")
+
+@Composable
 fun TransaccionesScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
     val transacciones by viewModel.transacciones.collectAsState()
     val categorias by viewModel.categorias.collectAsState()
@@ -183,6 +338,7 @@ fun TransaccionesScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
     val cuentas by viewModel.cuentas.collectAsState()
     val simbolo by viewModel.simboloMoneda.collectAsState()
     var mostrarFormulario by remember { mutableStateOf(false) }
+    var elementoEnEdicion by remember { mutableStateOf<Transaccion?>(null) }
 
     var textoBusqueda by remember { mutableStateOf("") }
     var mostrarFiltros by remember { mutableStateOf(false) }
@@ -265,38 +421,16 @@ fun TransaccionesScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(transaccionesFiltradas, key = { it.id }) { transaccion ->
+                    itemsIndexed(transaccionesFiltradas, key = { _, t -> t.id }) { index, transaccion ->
                         val categoriaIcono = categorias.find { it.id == transaccion.categoriaId }?.icono ?: "💰"
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = {
-                                if (it == SwipeToDismissBoxValue.EndToStart) {
-                                    viewModel.eliminar(transaccion)
-                                    true
-                                } else {
-                                    false
-                                }
-                            },
-                        )
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(12.dp))
-                                        .padding(horizontal = 20.dp),
-                                    contentAlignment = Alignment.CenterEnd,
-                                ) {
-                                    Icon(
-                                        Icons.Filled.Delete,
-                                        contentDescription = "Eliminar",
-                                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    )
-                                }
-                            },
+                        FilaConSwipe(
+                            onEliminar = { viewModel.eliminar(transaccion) },
+                            modifier = Modifier.entradaEscalonada(index),
                         ) {
                             Card(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { elementoEnEdicion = transaccion },
                                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             ) {
                                 ListItem(
@@ -318,38 +452,100 @@ fun TransaccionesScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
         }
     }
 
-    if (mostrarFormulario) {
-        var descripcion by remember { mutableStateOf("") }
-        var monto by remember { mutableStateOf("") }
-        var fecha by remember { mutableStateOf(LocalDate.now()) }
-        var tipo by remember { mutableStateOf(TipoTransaccion.GASTO) }
-        var categoria by remember { mutableStateOf<Categoria?>(null) }
-        var cuenta by remember { mutableStateOf<Cuenta?>(null) }
-        var negocio by remember { mutableStateOf<Negocio?>(null) }
-        var proyecto by remember { mutableStateOf<Proyecto?>(null) }
+    if (mostrarFormulario || elementoEnEdicion != null) {
+        var descripcion by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.descripcion ?: "") }
+        var monto by remember(elementoEnEdicion) {
+            mutableStateOf(elementoEnEdicion?.monto?.toPlainString() ?: "")
+        }
+        var fecha by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.fecha ?: LocalDate.now()) }
+        var tipo by remember(elementoEnEdicion) {
+            mutableStateOf(elementoEnEdicion?.tipo ?: TipoTransaccion.GASTO)
+        }
+        var categoria by remember(elementoEnEdicion) {
+            mutableStateOf(categorias.find { it.id == elementoEnEdicion?.categoriaId })
+        }
+        var cuenta by remember(elementoEnEdicion) {
+            mutableStateOf(cuentas.find { it.id == elementoEnEdicion?.cuentaId })
+        }
+        var negocio by remember(elementoEnEdicion) {
+            mutableStateOf(negocios.find { it.id == elementoEnEdicion?.negocioId })
+        }
+        var proyecto by remember(elementoEnEdicion) {
+            mutableStateOf(proyectos.find { it.id == elementoEnEdicion?.proyectoId })
+        }
+        var dividirConAlguien by remember(elementoEnEdicion) { mutableStateOf(false) }
+        var participantes by remember(elementoEnEdicion) { mutableStateOf<List<ParticipanteForm>>(emptyList()) }
+
+        // Los participantes viven en otra tabla (gastos_compartidos), no en Transaccion, así que
+        // hay que traerlos aparte cuando se abre una edición — no están disponibles de entrada
+        // como el resto de los campos, que salen directo de elementoEnEdicion.
+        LaunchedEffect(elementoEnEdicion) {
+            val edicion = elementoEnEdicion
+            if (edicion != null) {
+                val existentes = viewModel.participantesDe(edicion.id).first()
+                if (existentes.isNotEmpty()) {
+                    dividirConAlguien = true
+                    participantes = existentes.map {
+                        ParticipanteForm(it.nombreContacto, it.telefono, it.montoAPagar.toPlainString())
+                    }
+                }
+            }
+        }
 
         val montoBd = runCatching { BigDecimal(monto) }.getOrNull()
         val puedeGuardar = descripcion.isNotBlank() && montoBd != null && categoria != null && cuenta != null
 
         FormularioHoja(
-            titulo = "Nueva transacción",
-            onCerrar = { mostrarFormulario = false },
+            titulo = if (elementoEnEdicion != null) "Editar transacción" else "Nueva transacción",
+            onCerrar = { mostrarFormulario = false; elementoEnEdicion = null },
             guardarHabilitado = puedeGuardar,
             onGuardar = {
                 val categoriaSeleccionada = categoria
                 val cuentaSeleccionada = cuenta
                 if (puedeGuardar && categoriaSeleccionada != null && cuentaSeleccionada != null && montoBd != null) {
-                    viewModel.crear(
-                        descripcion = descripcion,
-                        monto = montoBd,
-                        fecha = fecha,
-                        tipo = tipo,
-                        categoriaId = categoriaSeleccionada.id,
-                        cuentaId = cuentaSeleccionada.id,
-                        negocioId = negocio?.id,
-                        proyectoId = proyecto?.id,
-                    )
+                    val participantesValidos = if (dividirConAlguien) {
+                        participantes.mapNotNull { p ->
+                            val montoParticipante = runCatching { BigDecimal(p.monto) }.getOrNull()
+                            if (p.nombreContacto.isNotBlank() && montoParticipante != null) {
+                                Triple(p.nombreContacto, p.telefono, montoParticipante)
+                            } else {
+                                null
+                            }
+                        }
+                    } else {
+                        emptyList()
+                    }
+
+                    val transaccionExistente = elementoEnEdicion
+                    if (transaccionExistente != null) {
+                        viewModel.actualizar(
+                            transaccionExistente.copy(
+                                descripcion = descripcion,
+                                monto = montoBd,
+                                fecha = fecha,
+                                tipo = tipo,
+                                categoriaId = categoriaSeleccionada.id,
+                                cuentaId = cuentaSeleccionada.id,
+                                negocioId = negocio?.id,
+                                proyectoId = proyecto?.id,
+                            ),
+                            participantesValidos,
+                        )
+                    } else {
+                        viewModel.crear(
+                            descripcion = descripcion,
+                            monto = montoBd,
+                            fecha = fecha,
+                            tipo = tipo,
+                            categoriaId = categoriaSeleccionada.id,
+                            cuentaId = cuentaSeleccionada.id,
+                            negocioId = negocio?.id,
+                            proyectoId = proyecto?.id,
+                            participantes = participantesValidos,
+                        )
+                    }
                     mostrarFormulario = false
+                    elementoEnEdicion = null
                 }
             },
         ) {
@@ -403,6 +599,48 @@ fun TransaccionesScreen(viewModel: TransaccionesViewModel = hiltViewModel()) {
                 onSeleccionar = { proyecto = it },
                 permiteNinguno = true,
             )
+            if (tipo == TipoTransaccion.GASTO) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = dividirConAlguien, onCheckedChange = { dividirConAlguien = it })
+                    Text("Dividir con alguien")
+                }
+                if (dividirConAlguien) {
+                    participantes.forEachIndexed { index, participante ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            OutlinedTextField(
+                                value = participante.nombreContacto,
+                                onValueChange = { valor ->
+                                    participantes = participantes.toMutableList()
+                                        .also { it[index] = participante.copy(nombreContacto = valor) }
+                                },
+                                label = { Text("Nombre") },
+                                modifier = Modifier.weight(1f),
+                            )
+                            OutlinedTextField(
+                                value = participante.monto,
+                                onValueChange = { valor ->
+                                    participantes = participantes.toMutableList()
+                                        .also { it[index] = participante.copy(monto = valor) }
+                                },
+                                label = { Text("Monto") },
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = {
+                                participantes = participantes.toMutableList().also { it.removeAt(index) }
+                            }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Quitar persona")
+                            }
+                        }
+                    }
+                    TextButton(onClick = { participantes = participantes + ParticipanteForm("") }) {
+                        Text("Agregar persona")
+                    }
+                }
+            }
         }
     }
 }
@@ -413,6 +651,7 @@ fun CuentasScreen(viewModel: CuentasViewModel = hiltViewModel()) {
     val monedas by viewModel.monedas.collectAsState()
     val simbolo by viewModel.simboloMoneda.collectAsState()
     var mostrarFormulario by remember { mutableStateOf(false) }
+    var elementoEnEdicion by remember { mutableStateOf<Cuenta?>(null) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Cuentas") }) },
@@ -429,54 +668,69 @@ fun CuentasScreen(viewModel: CuentasViewModel = hiltViewModel()) {
                 modifier = Modifier.padding(padding),
             )
         } else {
+            val balanceTotalCuentas = remember(cuentasConSaldo) {
+                cuentasConSaldo.fold(BigDecimal.ZERO) { acumulado, item -> acumulado + item.saldoActual }
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(cuentasConSaldo, key = { it.cuenta.id }) { item ->
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = {
-                            if (it == SwipeToDismissBoxValue.EndToStart) {
-                                viewModel.eliminar(item.cuenta)
-                                true
-                            } else {
-                                false
-                            }
-                        },
+                item {
+                    TarjetaMetrica(
+                        titulo = "Balance total de todas las cuentas",
+                        valor = balanceTotalCuentas.formatearMonto(simbolo),
+                        esPositivo = balanceTotalCuentas.signum() >= 0,
+                        esHero = true,
                     )
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        backgroundContent = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.CenterEnd,
-                            ) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = "Eliminar",
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                )
-                            }
-                        },
+                }
+                itemsIndexed(cuentasConSaldo, key = { _, item -> item.cuenta.id }) { index, item ->
+                    FilaConSwipe(
+                        onEliminar = { viewModel.eliminar(item.cuenta) },
+                        modifier = Modifier.entradaEscalonada(index),
                     ) {
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { elementoEnEdicion = item.cuenta },
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         ) {
-                            ListItem(
-                                headlineContent = { Text(item.cuenta.nombre) },
-                                supportingContent = { Text(item.cuenta.tipo.name) },
-                                trailingContent = {
-                                    MontoTexto(
-                                        texto = item.saldoActual.formatearMonto(simbolo),
-                                        esPositivo = item.saldoActual.signum() >= 0,
+                            Column {
+                                ListItem(
+                                    headlineContent = { Text(item.cuenta.nombre) },
+                                    supportingContent = { Text(item.cuenta.tipo.name) },
+                                    trailingContent = {
+                                        MontoTexto(
+                                            texto = item.saldoActual.formatearMonto(simbolo),
+                                            esPositivo = item.saldoActual.signum() >= 0,
+                                        )
+                                    },
+                                )
+                                val porcentaje = item.porcentajeUtilizado
+                                if (porcentaje != null) {
+                                    val porcentajeAnimado by animateFloatAsState(
+                                        targetValue = porcentaje,
+                                        label = "utilizacionTarjeta",
                                     )
-                                },
-                            )
+                                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                                        LinearProgressIndicator(
+                                            progress = { porcentajeAnimado },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            color = if (porcentaje >= 1f) {
+                                                MaterialTheme.colorScheme.error
+                                            } else {
+                                                MaterialTheme.colorScheme.primary
+                                            },
+                                        )
+                                        Text(
+                                            "Usaste ${(porcentaje * 100).toInt()}% de tu límite",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(top = 4.dp),
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -484,24 +738,51 @@ fun CuentasScreen(viewModel: CuentasViewModel = hiltViewModel()) {
         }
     }
 
-    if (mostrarFormulario) {
-        var nombre by remember { mutableStateOf("") }
-        var tipo by remember { mutableStateOf(TipoCuenta.EFECTIVO) }
-        var moneda by remember { mutableStateOf<Moneda?>(null) }
-        var saldoInicial by remember { mutableStateOf("0") }
+    if (mostrarFormulario || elementoEnEdicion != null) {
+        var nombre by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.nombre ?: "") }
+        var tipo by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.tipo ?: TipoCuenta.EFECTIVO) }
+        var moneda by remember(elementoEnEdicion) {
+            mutableStateOf(monedas.find { it.id == elementoEnEdicion?.monedaId })
+        }
+        var saldoInicial by remember(elementoEnEdicion) {
+            mutableStateOf(elementoEnEdicion?.saldoInicial?.toPlainString() ?: "0")
+        }
+        var limiteCredito by remember(elementoEnEdicion) {
+            mutableStateOf(elementoEnEdicion?.limiteCredito?.toPlainString() ?: "")
+        }
 
         val saldoBd = runCatching { BigDecimal(saldoInicial) }.getOrNull()
         val puedeGuardar = nombre.isNotBlank() && saldoBd != null && moneda != null
 
         FormularioHoja(
-            titulo = "Nueva cuenta",
-            onCerrar = { mostrarFormulario = false },
+            titulo = if (elementoEnEdicion != null) "Editar cuenta" else "Nueva cuenta",
+            onCerrar = { mostrarFormulario = false; elementoEnEdicion = null },
             guardarHabilitado = puedeGuardar,
             onGuardar = {
                 val monedaSeleccionada = moneda
                 if (puedeGuardar && monedaSeleccionada != null && saldoBd != null) {
-                    viewModel.crear(nombre, tipo, monedaSeleccionada.id, saldoBd)
+                    val cuentaExistente = elementoEnEdicion
+                    if (cuentaExistente != null) {
+                        viewModel.actualizar(
+                            cuentaExistente.copy(
+                                nombre = nombre,
+                                tipo = tipo,
+                                monedaId = monedaSeleccionada.id,
+                                saldoInicial = saldoBd,
+                                limiteCredito = limiteCredito.toBigDecimalOrNull(),
+                            ),
+                        )
+                    } else {
+                        viewModel.crear(
+                            nombre = nombre,
+                            tipo = tipo,
+                            monedaId = monedaSeleccionada.id,
+                            saldoInicial = saldoBd,
+                            limiteCredito = limiteCredito.toBigDecimalOrNull(),
+                        )
+                    }
                     mostrarFormulario = false
+                    elementoEnEdicion = null
                 }
             },
         ) {
@@ -531,6 +812,14 @@ fun CuentasScreen(viewModel: CuentasViewModel = hiltViewModel()) {
                 label = { Text("Saldo inicial") },
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (tipo == TipoCuenta.TARJETA) {
+                OutlinedTextField(
+                    value = limiteCredito,
+                    onValueChange = { limiteCredito = it },
+                    label = { Text("Límite de crédito (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }
@@ -542,6 +831,7 @@ fun NegociosScreen(
 ) {
     val negocios by viewModel.negocios.collectAsState()
     var mostrarFormulario by remember { mutableStateOf(false) }
+    var elementoEnEdicion by remember { mutableStateOf<Negocio?>(null) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Negocios") }) },
@@ -563,28 +853,44 @@ fun NegociosScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(negocios, key = { it.id }) { negocio ->
+                itemsIndexed(negocios, key = { _, n -> n.id }) { index, negocio ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onNegocioClick(negocio.id) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNegocioClick(negocio.id) }
+                            .entradaEscalonada(index),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     ) {
-                        ListItem(headlineContent = { Text(negocio.nombre) })
+                        ListItem(
+                            headlineContent = { Text(negocio.nombre) },
+                            trailingContent = {
+                                IconButton(onClick = { elementoEnEdicion = negocio }) {
+                                    Icon(Icons.Filled.Edit, contentDescription = "Editar negocio")
+                                }
+                            },
+                        )
                     }
                 }
             }
         }
     }
 
-    if (mostrarFormulario) {
-        var nombre by remember { mutableStateOf("") }
+    if (mostrarFormulario || elementoEnEdicion != null) {
+        var nombre by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.nombre ?: "") }
         FormularioHoja(
-            titulo = "Nuevo negocio",
-            onCerrar = { mostrarFormulario = false },
+            titulo = if (elementoEnEdicion != null) "Editar negocio" else "Nuevo negocio",
+            onCerrar = { mostrarFormulario = false; elementoEnEdicion = null },
             guardarHabilitado = nombre.isNotBlank(),
             onGuardar = {
                 if (nombre.isNotBlank()) {
-                    viewModel.crear(nombre)
+                    val negocioExistente = elementoEnEdicion
+                    if (negocioExistente != null) {
+                        viewModel.actualizar(negocioExistente.copy(nombre = nombre))
+                    } else {
+                        viewModel.crear(nombre)
+                    }
                     mostrarFormulario = false
+                    elementoEnEdicion = null
                 }
             },
         ) {
@@ -606,6 +912,7 @@ fun ProyectosScreen(
     val proyectos by viewModel.proyectos.collectAsState()
     val simbolo by viewModel.simboloMoneda.collectAsState()
     var mostrarFormulario by remember { mutableStateOf(false) }
+    var elementoEnEdicion by remember { mutableStateOf<Proyecto?>(null) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Proyectos") }) },
@@ -627,9 +934,12 @@ fun ProyectosScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(proyectos, key = { it.proyecto.id }) { item ->
+                itemsIndexed(proyectos, key = { _, item -> item.proyecto.id }) { index, item ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().clickable { onProyectoClick(item.proyecto.id) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onProyectoClick(item.proyecto.id) }
+                            .entradaEscalonada(index),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     ) {
                         ListItem(
@@ -638,11 +948,16 @@ fun ProyectosScreen(
                                 Text("Gastado: ${item.costoAcumulado.formatearMonto(simbolo)}")
                             },
                             trailingContent = {
-                                MontoTexto(
-                                    texto = "Restante: ${item.presupuestoRestante.formatearMonto(simbolo)}",
-                                    esPositivo = item.presupuestoRestante.signum() >= 0,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    MontoTexto(
+                                        texto = "Restante: ${item.presupuestoRestante.formatearMonto(simbolo)}",
+                                        esPositivo = item.presupuestoRestante.signum() >= 0,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    IconButton(onClick = { elementoEnEdicion = item.proyecto }) {
+                                        Icon(Icons.Filled.Edit, contentDescription = "Editar proyecto")
+                                    }
+                                }
                             },
                         )
                     }
@@ -651,21 +966,29 @@ fun ProyectosScreen(
         }
     }
 
-    if (mostrarFormulario) {
-        var nombre by remember { mutableStateOf("") }
-        var presupuesto by remember { mutableStateOf("") }
+    if (mostrarFormulario || elementoEnEdicion != null) {
+        var nombre by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.nombre ?: "") }
+        var presupuesto by remember(elementoEnEdicion) {
+            mutableStateOf(elementoEnEdicion?.presupuestoEstimado?.toPlainString() ?: "")
+        }
 
         val presupuestoBd = runCatching { BigDecimal(presupuesto) }.getOrNull()
         val puedeGuardar = nombre.isNotBlank() && presupuestoBd != null
 
         FormularioHoja(
-            titulo = "Nuevo proyecto",
-            onCerrar = { mostrarFormulario = false },
+            titulo = if (elementoEnEdicion != null) "Editar proyecto" else "Nuevo proyecto",
+            onCerrar = { mostrarFormulario = false; elementoEnEdicion = null },
             guardarHabilitado = puedeGuardar,
             onGuardar = {
                 if (puedeGuardar && presupuestoBd != null) {
-                    viewModel.crear(nombre, presupuestoBd)
+                    val proyectoExistente = elementoEnEdicion
+                    if (proyectoExistente != null) {
+                        viewModel.actualizar(proyectoExistente.copy(nombre = nombre, presupuestoEstimado = presupuestoBd))
+                    } else {
+                        viewModel.crear(nombre, presupuestoBd)
+                    }
                     mostrarFormulario = false
+                    elementoEnEdicion = null
                 }
             },
         ) {

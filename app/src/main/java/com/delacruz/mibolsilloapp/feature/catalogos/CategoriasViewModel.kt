@@ -24,6 +24,10 @@ class CategoriasViewModel @Inject constructor(
         viewModelScope.launch { repository.crear(Categoria(nombre = nombre, icono = icono, tipo = tipo)) }
     }
 
+    fun actualizar(categoria: Categoria) {
+        viewModelScope.launch { repository.actualizar(categoria) }
+    }
+
     fun eliminar(categoria: Categoria) {
         viewModelScope.launch { repository.eliminar(categoria) }
     }

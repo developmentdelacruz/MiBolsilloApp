@@ -41,6 +41,10 @@ class SuscripcionesListViewModel @Inject constructor(
         }
     }
 
+    fun actualizar(suscripcion: Suscripcion) {
+        viewModelScope.launch { repository.actualizar(suscripcion) }
+    }
+
     fun eliminar(suscripcion: Suscripcion) {
         viewModelScope.launch { repository.eliminar(suscripcion) }
     }

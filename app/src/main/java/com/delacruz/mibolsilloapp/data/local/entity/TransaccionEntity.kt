@@ -34,8 +34,16 @@ import java.time.LocalDate
             childColumns = ["cuentaId"],
             onDelete = ForeignKey.RESTRICT,
         ),
+        ForeignKey(
+            entity = CompraEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["compraId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
-    indices = [Index("categoriaId"), Index("negocioId"), Index("proyectoId"), Index("cuentaId")],
+    indices = [
+        Index("categoriaId"), Index("negocioId"), Index("proyectoId"), Index("cuentaId"), Index("compraId"),
+    ],
 )
 data class TransaccionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -47,4 +55,7 @@ data class TransaccionEntity(
     val cuentaId: Long,
     val negocioId: Long? = null,
     val proyectoId: Long? = null,
+    /** No nulo solo cuando la transacción fue generada por una compra en cuotas (ver CompraEntity). */
+    val compraId: Long? = null,
+    val numeroCuota: Int? = null,
 )

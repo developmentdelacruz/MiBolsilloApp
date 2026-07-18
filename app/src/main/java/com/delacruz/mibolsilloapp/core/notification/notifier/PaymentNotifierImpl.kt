@@ -15,20 +15,39 @@ class PaymentNotifierImpl @Inject constructor(
 
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CANAL_PAGOS,
-                "Recordatorios de pago",
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply {
-                // La vibración es opt-in por canal: IMPORTANCE_DEFAULT por sí solo no vibra.
-                enableVibration(true)
-            }
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            val manager = context.getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CANAL_PAGOS,
+                    "Recordatorios de pago",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    // La vibración es opt-in por canal: IMPORTANCE_DEFAULT por sí solo no vibra.
+                    enableVibration(true)
+                },
+            )
+            // Canal separado del de pagos para que el usuario pueda silenciar uno sin el otro
+            // desde los ajustes de notificaciones de Android.
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CANAL_PRESUPUESTOS,
+                    "Alertas de presupuesto",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply { enableVibration(true) },
+            )
         }
     }
 
     override fun notificarPagoProximo(id: Long, titulo: String, mensaje: String) {
-        val notification = NotificationCompat.Builder(context, CANAL_PAGOS)
+        notificar(CANAL_PAGOS, id, titulo, mensaje)
+    }
+
+    override fun notificarPresupuestoExcedido(id: Long, titulo: String, mensaje: String) {
+        notificar(CANAL_PRESUPUESTOS, id, titulo, mensaje)
+    }
+
+    private fun notificar(canal: String, id: Long, titulo: String, mensaje: String) {
+        val notification = NotificationCompat.Builder(context, canal)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(titulo)
             .setContentText(mensaje)
@@ -42,5 +61,6 @@ class PaymentNotifierImpl @Inject constructor(
 
     private companion object {
         const val CANAL_PAGOS = "pagos_proximos"
+        const val CANAL_PRESUPUESTOS = "alertas_presupuesto"
     }
 }

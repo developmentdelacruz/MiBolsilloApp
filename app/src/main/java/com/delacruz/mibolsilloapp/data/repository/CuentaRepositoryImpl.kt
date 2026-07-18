@@ -8,6 +8,7 @@ import com.delacruz.mibolsilloapp.domain.model.Cuenta
 import com.delacruz.mibolsilloapp.domain.model.CuentaConSaldo
 import com.delacruz.mibolsilloapp.domain.repository.CuentaRepository
 import java.math.BigDecimal
+import java.time.LocalDate
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -26,11 +27,11 @@ class CuentaRepositoryImpl @Inject constructor(
         dao.observeAll().map { entidades -> entidades.map { it.toDomain() } }
 
     override fun observarConSaldo(cuentaId: Long): Flow<CuentaConSaldo?> =
-        dao.observeConSaldo(cuentaId).map { it?.toDomain() }
+        dao.observeConSaldo(cuentaId, LocalDate.now()).map { it?.toDomain() }
 
     override fun observarTodasConSaldo(): Flow<List<CuentaConSaldo>> =
-        dao.observeTodasConSaldo().map { filas -> filas.map { it.toDomain() } }
+        dao.observeTodasConSaldo(LocalDate.now()).map { filas -> filas.map { it.toDomain() } }
 
     override fun observarSaldoTotal(): Flow<BigDecimal> =
-        dao.observeSaldoTotal().map { it.centavosToMonto() }
+        dao.observeSaldoTotal(LocalDate.now()).map { it.centavosToMonto() }
 }

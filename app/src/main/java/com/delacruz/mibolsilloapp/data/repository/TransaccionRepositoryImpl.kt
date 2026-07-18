@@ -4,6 +4,7 @@ import com.delacruz.mibolsilloapp.data.local.dao.TransaccionDao
 import com.delacruz.mibolsilloapp.data.mapper.centavosToMonto
 import com.delacruz.mibolsilloapp.data.mapper.toDomain
 import com.delacruz.mibolsilloapp.data.mapper.toEntity
+import com.delacruz.mibolsilloapp.domain.model.GastoMensual
 import com.delacruz.mibolsilloapp.domain.model.Transaccion
 import com.delacruz.mibolsilloapp.domain.repository.TransaccionRepository
 import java.math.BigDecimal
@@ -36,4 +37,18 @@ class TransaccionRepositoryImpl @Inject constructor(
 
     override fun observarBalanceNeto(desde: LocalDate, hasta: LocalDate): Flow<BigDecimal> =
         dao.observeBalanceNeto(desde, hasta).map { it.centavosToMonto() }
+
+    override suspend fun gastoDeCategoriaEnMes(categoriaId: Long, anio: Int, mes: Int): BigDecimal =
+        dao.gastoDeCategoriaEnMes(categoriaId, anio, mes).centavosToMonto()
+
+    override fun observarGastoMensualPorCategoria(categoriaId: Long, meses: Int): Flow<List<GastoMensual>> {
+        val desde = LocalDate.now().minusMonths(meses.toLong()).withDayOfMonth(1)
+        return dao.observeGastoMensualPorCategoria(categoriaId, desde).map { filas -> filas.map { it.toDomain() } }
+    }
+
+    override suspend fun eliminarCuotasFuturasDeCompra(compraId: Long, hoy: LocalDate) =
+        dao.deleteCuotasFuturasDeCompra(compraId, hoy)
+
+    override suspend fun desvincularCuotasDeCompra(compraId: Long) =
+        dao.desvincularCuotasDeCompra(compraId)
 }

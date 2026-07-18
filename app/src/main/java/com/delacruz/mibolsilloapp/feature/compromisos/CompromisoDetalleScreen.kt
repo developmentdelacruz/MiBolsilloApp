@@ -2,6 +2,7 @@
 
 package com.delacruz.mibolsilloapp.feature.compromisos
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,7 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Receipt
@@ -18,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -37,7 +39,9 @@ import com.delacruz.mibolsilloapp.core.ui.components.EstadoVacio
 import com.delacruz.mibolsilloapp.core.ui.components.FechaCampo
 import com.delacruz.mibolsilloapp.core.ui.components.FormularioHoja
 import com.delacruz.mibolsilloapp.core.ui.components.MontoTexto
+import com.delacruz.mibolsilloapp.core.ui.components.TarjetaMetrica
 import com.delacruz.mibolsilloapp.core.ui.components.TonoChip
+import com.delacruz.mibolsilloapp.core.ui.components.entradaEscalonada
 import com.delacruz.mibolsilloapp.core.ui.components.formatearMonto
 import com.delacruz.mibolsilloapp.domain.model.EstadoCompromiso
 import java.math.BigDecimal
@@ -59,16 +63,29 @@ fun CompromisoDetalleScreen(viewModel: CompromisoDetalleViewModel = hiltViewMode
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             detalle?.let { info ->
-                Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                val cuotasPagadas = info.pagos.size
+                val cuotasTotales = info.compromiso.cuotasTotales
+                val progresoObjetivo = if (cuotasTotales > 0) {
+                    cuotasPagadas.toFloat() / cuotasTotales.toFloat()
+                } else {
+                    0f
+                }
+                val progreso by animateFloatAsState(
+                    targetValue = progresoObjetivo.coerceIn(0f, 1f),
+                    label = "progresoCuotasDetalle",
+                )
+
+                TarjetaMetrica(
+                    titulo = info.compromiso.nombre,
+                    valor = info.compromiso.montoTotal.formatearMonto(simbolo),
+                    esHero = true,
+                    modifier = Modifier.padding(16.dp),
+                    contenidoExtra = {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text(
-                                "Monto total: ${info.compromiso.montoTotal.formatearMonto(simbolo)}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
+                            Text("Cuotas: $cuotasPagadas/$cuotasTotales", style = MaterialTheme.typography.bodyMedium)
                             ChipEstado(
                                 texto = info.compromiso.estado.name,
                                 tono = if (info.compromiso.estado == EstadoCompromiso.ACTIVO) {
@@ -78,8 +95,12 @@ fun CompromisoDetalleScreen(viewModel: CompromisoDetalleViewModel = hiltViewMode
                                 },
                             )
                         }
-                    }
-                }
+                        LinearProgressIndicator(
+                            progress = { progreso },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        )
+                    },
+                )
             }
 
             val pagos = detalle?.pagos.orEmpty()
@@ -91,8 +112,8 @@ fun CompromisoDetalleScreen(viewModel: CompromisoDetalleViewModel = hiltViewMode
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(pagos, key = { it.id }) { pago ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                    itemsIndexed(pagos, key = { _, pago -> pago.id }) { index, pago ->
+                        Card(modifier = Modifier.fillMaxWidth().entradaEscalonada(index)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,

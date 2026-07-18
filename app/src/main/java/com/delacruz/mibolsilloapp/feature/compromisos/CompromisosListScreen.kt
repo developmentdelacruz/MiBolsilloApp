@@ -2,10 +2,9 @@
 
 package com.delacruz.mibolsilloapp.feature.compromisos
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,22 +12,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material3.Card
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,10 +39,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.delacruz.mibolsilloapp.core.ui.components.ChipEstado
 import com.delacruz.mibolsilloapp.core.ui.components.EstadoVacio
+import com.delacruz.mibolsilloapp.core.ui.components.FilaConSwipe
 import com.delacruz.mibolsilloapp.core.ui.components.FormularioHoja
 import com.delacruz.mibolsilloapp.core.ui.components.MontoTexto
 import com.delacruz.mibolsilloapp.core.ui.components.TonoChip
+import com.delacruz.mibolsilloapp.core.ui.components.entradaEscalonada
 import com.delacruz.mibolsilloapp.core.ui.components.formatearMonto
+import com.delacruz.mibolsilloapp.domain.model.Compromiso
 import com.delacruz.mibolsilloapp.domain.model.EstadoCompromiso
 import java.math.BigDecimal
 
@@ -56,6 +57,7 @@ fun CompromisosListScreen(
     val compromisos by viewModel.compromisos.collectAsState()
     val simbolo by viewModel.simboloMoneda.collectAsState()
     var mostrarFormulario by remember { mutableStateOf(false) }
+    var elementoEnEdicion by remember { mutableStateOf<Compromiso?>(null) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Compromisos") }) },
@@ -77,34 +79,10 @@ fun CompromisosListScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(compromisos, key = { it.compromiso.id }) { item ->
-                    val estadoSwipe = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { valor ->
-                            if (valor == SwipeToDismissBoxValue.EndToStart) {
-                                viewModel.eliminar(item.compromiso)
-                                true
-                            } else {
-                                false
-                            }
-                        },
-                    )
-                    SwipeToDismissBox(
-                        state = estadoSwipe,
-                        backgroundContent = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.errorContainer),
-                                contentAlignment = Alignment.CenterEnd,
-                            ) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = "Eliminar",
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.padding(horizontal = 20.dp),
-                                )
-                            }
-                        },
+                itemsIndexed(compromisos, key = { _, item -> item.compromiso.id }) { index, item ->
+                    FilaConSwipe(
+                        onEliminar = { viewModel.eliminar(item.compromiso) },
+                        modifier = Modifier.entradaEscalonada(index),
                     ) {
                         Card(
                             modifier = Modifier
@@ -117,14 +95,19 @@ fun CompromisosListScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
                                     Text(item.compromiso.nombre, style = MaterialTheme.typography.titleMedium)
-                                    ChipEstado(
-                                        texto = item.compromiso.estado.name,
-                                        tono = if (item.compromiso.estado == EstadoCompromiso.ACTIVO) {
-                                            TonoChip.POSITIVO
-                                        } else {
-                                            TonoChip.NEUTRO
-                                        },
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        ChipEstado(
+                                            texto = item.compromiso.estado.name,
+                                            tono = if (item.compromiso.estado == EstadoCompromiso.ACTIVO) {
+                                                TonoChip.POSITIVO
+                                            } else {
+                                                TonoChip.NEUTRO
+                                            },
+                                        )
+                                        IconButton(onClick = { elementoEnEdicion = item.compromiso }) {
+                                            Icon(Icons.Filled.Edit, contentDescription = "Editar compromiso")
+                                        }
+                                    }
                                 }
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -139,6 +122,19 @@ fun CompromisosListScreen(
                                         esPositivo = item.saldoPendiente <= BigDecimal.ZERO,
                                     )
                                 }
+                                val progresoObjetivo = if (item.compromiso.cuotasTotales > 0) {
+                                    item.cuotasPagadas.toFloat() / item.compromiso.cuotasTotales.toFloat()
+                                } else {
+                                    0f
+                                }
+                                val progreso by animateFloatAsState(
+                                    targetValue = progresoObjetivo.coerceIn(0f, 1f),
+                                    label = "progresoCuotas",
+                                )
+                                LinearProgressIndicator(
+                                    progress = { progreso },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                )
                             }
                         }
                     }
@@ -147,11 +143,11 @@ fun CompromisosListScreen(
         }
     }
 
-    if (mostrarFormulario) {
-        var nombre by remember { mutableStateOf("") }
-        var monto by remember { mutableStateOf("") }
-        var cuotas by remember { mutableStateOf("") }
-        var diaPago by remember { mutableStateOf("") }
+    if (mostrarFormulario || elementoEnEdicion != null) {
+        var nombre by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.nombre ?: "") }
+        var monto by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.montoTotal?.toPlainString() ?: "") }
+        var cuotas by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.cuotasTotales?.toString() ?: "") }
+        var diaPago by remember(elementoEnEdicion) { mutableStateOf(elementoEnEdicion?.diaPagoSugerido?.toString() ?: "") }
 
         val montoBd = monto.toBigDecimalOrNull()
         val cuotasInt = cuotas.toIntOrNull()
@@ -159,13 +155,29 @@ fun CompromisosListScreen(
         val puedeGuardar = nombre.isNotBlank() && montoBd != null && cuotasInt != null && diaInt != null
 
         FormularioHoja(
-            titulo = "Nuevo compromiso",
-            onCerrar = { mostrarFormulario = false },
+            titulo = if (elementoEnEdicion != null) "Editar compromiso" else "Nuevo compromiso",
+            onCerrar = {
+                mostrarFormulario = false
+                elementoEnEdicion = null
+            },
             guardarHabilitado = puedeGuardar,
             onGuardar = {
+                val compromisoEditado = elementoEnEdicion
                 if (puedeGuardar) {
-                    viewModel.crear(nombre, montoBd!!, cuotasInt!!, diaInt!!)
+                    if (compromisoEditado != null) {
+                        viewModel.actualizar(
+                            compromisoEditado.copy(
+                                nombre = nombre,
+                                montoTotal = montoBd!!,
+                                cuotasTotales = cuotasInt!!,
+                                diaPagoSugerido = diaInt!!,
+                            ),
+                        )
+                    } else {
+                        viewModel.crear(nombre, montoBd!!, cuotasInt!!, diaInt!!)
+                    }
                     mostrarFormulario = false
+                    elementoEnEdicion = null
                 }
             },
         ) {

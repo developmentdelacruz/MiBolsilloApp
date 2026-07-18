@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -27,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -37,10 +39,14 @@ import com.delacruz.mibolsilloapp.core.ui.theme.MiBolsilloAppTheme
 import com.delacruz.mibolsilloapp.feature.catalogos.catalogosGraph
 import com.delacruz.mibolsilloapp.feature.compromisos.RUTA_COMPROMISOS
 import com.delacruz.mibolsilloapp.feature.compromisos.compromisosGraph
+import com.delacruz.mibolsilloapp.feature.gastoscompartidos.gastosCompartidosGraph
+import com.delacruz.mibolsilloapp.feature.perfil.perfilGraph
+import com.delacruz.mibolsilloapp.feature.respaldo.respaldoGraph
 import com.delacruz.mibolsilloapp.feature.suscripciones.suscripcionesGraph
 import com.delacruz.mibolsilloapp.feature.transacciones.RUTA_CUENTAS
 import com.delacruz.mibolsilloapp.feature.transacciones.RUTA_RESUMEN
 import com.delacruz.mibolsilloapp.feature.transacciones.RUTA_TRANSACCIONES
+import com.delacruz.mibolsilloapp.feature.transacciones.comprasGraph
 import com.delacruz.mibolsilloapp.feature.transacciones.cuentasGraph
 import com.delacruz.mibolsilloapp.feature.transacciones.negociosGraph
 import com.delacruz.mibolsilloapp.feature.transacciones.proyectosGraph
@@ -89,14 +95,18 @@ private fun AppNavHost() {
             startDestination = RUTA_RESUMEN,
             modifier = Modifier.padding(padding),
         ) {
-            resumenGraph()
+            resumenGraph(navController)
             cuentasGraph()
             transaccionesGraph()
+            comprasGraph()
             negociosGraph(navController)
             proyectosGraph(navController)
             compromisosGraph(navController)
             suscripcionesGraph(navController)
-            catalogosGraph()
+            catalogosGraph(navController)
+            respaldoGraph()
+            perfilGraph()
+            gastosCompartidosGraph()
             composable(RUTA_MAS) { MasScreen(navController) }
         }
     }
@@ -149,7 +159,15 @@ private fun AppBottomBar(navController: NavHostController) {
                     }
                 },
                 icon = { Icon(imageVector = destino.icono, contentDescription = destino.etiqueta) },
-                label = { Text(destino.etiqueta) },
+                label = {
+                    Text(
+                        text = destino.etiqueta,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                },
             )
         }
     }

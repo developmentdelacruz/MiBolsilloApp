@@ -33,4 +33,8 @@ class ProyectosViewModel @Inject constructor(
             repository.crear(Proyecto(nombre = nombre, presupuestoEstimado = presupuestoEstimado))
         }
     }
+
+    fun actualizar(proyecto: Proyecto) {
+        viewModelScope.launch { repository.actualizar(proyecto) }
+    }
 }

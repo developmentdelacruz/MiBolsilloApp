@@ -4,6 +4,7 @@ import com.delacruz.mibolsilloapp.domain.model.Compromiso
 import com.delacruz.mibolsilloapp.domain.model.CompromisoConPagos
 import com.delacruz.mibolsilloapp.domain.model.CompromisoConSaldo
 import com.delacruz.mibolsilloapp.domain.model.PagoCompromiso
+import java.math.BigDecimal
 import kotlinx.coroutines.flow.Flow
 
 interface CompromisoRepository {
@@ -16,4 +17,5 @@ interface CompromisoRepository {
     fun observarConPagos(id: Long): Flow<CompromisoConPagos?>
     fun observarConSaldo(id: Long): Flow<CompromisoConSaldo?>
     fun observarTodosConSaldo(): Flow<List<CompromisoConSaldo>>
+    fun observarTotalSaldoPendiente(): Flow<BigDecimal>
 }

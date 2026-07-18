@@ -27,6 +27,10 @@ class MonedasViewModel @Inject constructor(
         }
     }
 
+    fun actualizar(moneda: Moneda) {
+        viewModelScope.launch { repository.actualizar(moneda) }
+    }
+
     fun eliminar(moneda: Moneda) {
         viewModelScope.launch { repository.eliminar(moneda) }
     }

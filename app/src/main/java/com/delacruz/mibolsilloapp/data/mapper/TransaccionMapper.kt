@@ -1,7 +1,10 @@
 package com.delacruz.mibolsilloapp.data.mapper
 
+import com.delacruz.mibolsilloapp.data.local.dao.GastoMensualRow
 import com.delacruz.mibolsilloapp.data.local.entity.TransaccionEntity
+import com.delacruz.mibolsilloapp.domain.model.GastoMensual
 import com.delacruz.mibolsilloapp.domain.model.Transaccion
+import java.time.YearMonth
 
 fun TransaccionEntity.toDomain(): Transaccion = Transaccion(
     id = id,
@@ -13,6 +16,8 @@ fun TransaccionEntity.toDomain(): Transaccion = Transaccion(
     cuentaId = cuentaId,
     negocioId = negocioId,
     proyectoId = proyectoId,
+    compraId = compraId,
+    numeroCuota = numeroCuota,
 )
 
 fun Transaccion.toEntity(): TransaccionEntity = TransaccionEntity(
@@ -25,4 +30,11 @@ fun Transaccion.toEntity(): TransaccionEntity = TransaccionEntity(
     cuentaId = cuentaId,
     negocioId = negocioId,
     proyectoId = proyectoId,
+    compraId = compraId,
+    numeroCuota = numeroCuota,
+)
+
+fun GastoMensualRow.toDomain(): GastoMensual = GastoMensual(
+    mes = YearMonth.parse(mes),
+    monto = montoCentavos.centavosToMonto(),
 )

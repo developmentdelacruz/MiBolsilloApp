@@ -33,7 +33,13 @@ class CuentasViewModel @Inject constructor(
         .map { it?.simbolo ?: "" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
-    fun crear(nombre: String, tipo: TipoCuenta, monedaId: Long, saldoInicial: BigDecimal) {
+    fun crear(
+        nombre: String,
+        tipo: TipoCuenta,
+        monedaId: Long,
+        saldoInicial: BigDecimal,
+        limiteCredito: BigDecimal? = null,
+    ) {
         viewModelScope.launch {
             repository.crear(
                 Cuenta(
@@ -41,9 +47,14 @@ class CuentasViewModel @Inject constructor(
                     tipo = tipo,
                     monedaId = monedaId,
                     saldoInicial = saldoInicial,
+                    limiteCredito = limiteCredito,
                 ),
             )
         }
+    }
+
+    fun actualizar(cuenta: Cuenta) {
+        viewModelScope.launch { repository.actualizar(cuenta) }
     }
 
     fun eliminar(cuenta: Cuenta) {
